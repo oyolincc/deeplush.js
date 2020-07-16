@@ -1,0 +1,42 @@
+{
+  "name": "spider-dev",
+  "version": "3.1.0",
+  "main": "index.js",
+  "author": "LINKS <a824759414@gmail.com>",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "lint": "eslint .",
+    "ts": "rimraf ./dist-ts && ttsc -d",
+    "dev": "rimraf ./dist && rollup -w -c",
+    "build:dev": "rimraf ./dist && rollup -c",
+    "build:prod": "rollup -c --environment PROD"
+  },
+  "devDependencies": {
+    "@rollup/plugin-json": "^4.1.0",
+    "@types/cheerio": "^0.22.18",
+    "@types/cookiejar": "^2.1.1",
+    "@types/mime": "^2.0.2",
+    "@types/node": "^14.0.14",
+    "eslint": "^7.2.0",
+    "eslint-config-standard": "^14.1.1",
+    "eslint-plugin-import": "^2.21.2",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^4.2.1",
+    "eslint-plugin-standard": "^4.0.1",
+    "rimraf": "^3.0.2",
+    "rollup": "^2.6.1",
+    "rollup-plugin-alias": "^2.2.0",
+    "rollup-plugin-terser": "^6.1.0",
+    "rollup-plugin-typescript2": "^0.27.1",
+    "ttypescript": "^1.5.10",
+    "typescript": "^3.9.6",
+    "typescript-transform-paths": "^1.1.14"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.3",
+    "cookiejar": "^2.1.2",
+    "https-proxy-agent": "^5.0.0",
+    "mime": "^2.4.4"
+  }
+}
