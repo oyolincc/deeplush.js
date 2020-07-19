@@ -34,7 +34,7 @@ export default class Browser {
    */
   resolve(url: string): string {
     if (!this._options) {
-      throw new Error('Browser.resolve: 当前未作新的请求，无法获取绝对url')
+      return url
     }
     const host = this._options.host
     return host ? URL.resolve(`${this._options.protocol}//${host}`, url) : url

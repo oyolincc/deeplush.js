@@ -1,126 +1,240 @@
 import { DataProp, DataItem } from '@/global'
-import { isString, isObject } from '@/utils/verify'
+import { isString, isArray } from '@/utils/verify'
+import { deepClone } from '@/utils/util'
 import * as PATH from 'path'
 import * as FS from 'fs'
 
-type Tree = { [key: string]: Tree | DataProp }
+export type Tree = { [key: string]: Tree | string[] }
+export type Db = {
+  category: Tree,
+  data: DataItem[]
+}
+export type CategoryInfo = {
+  [key: string]: string
+}
 
 export default class Database {
   path: string // json数据所在路径
-  _keyNames: string[]
-  _tree: Tree
+  _categoryKeys: string[]
+  _db: Db
+  _pKey: string
 
-  constructor(keyNames: string[], workdir: string, configName: string) {
+  constructor(workdir: string, configName: string, categoryKeys: string[], pKey: string) {
     this.path = PATH.resolve(workdir, configName.replace(/\.json$/g, '') + '.json')
-    if (!keyNames.length) {
-      throw new Error('Database.create: keyNames 必须有长度')
+    if (!categoryKeys.length) {
+      throw new Error('Database.create: descKeys must have length')
     }
     FS.mkdirSync(workdir, { recursive: true })
-    this._keyNames = keyNames
-    this._tree = this._initTree()
+    this._categoryKeys = categoryKeys
+    this._pKey = pKey
+    this._db = this._initDb()
   }
 
-  get(item?: DataItem): Tree | DataProp {
-    if (!item) { return this._tree }
-
-    let root: Tree = JSON.parse(JSON.stringify(this._tree)) // 深拷贝
-    for (let i = 0; i < this._keyNames.length; i++) {
-      const key = item[this._keyNames[i]]
-      if (!isString(key)) {
-        if (!key) { return root }
-        // key非空且不是string
-        throw new Error(`Database.get: keyName: ${this._keyNames[i]}对应的值必须为string`)
-      }
-      const nextRoot = root[key]
-      if (!isObject(nextRoot)) { return nextRoot }
-      root = nextRoot
-    }
-    return root
-  }
-  
-  set(item: DataItem): void {
-    item = { ...item }
-    let root = this._tree
-    for (let i = 0; i < this._keyNames.length; i++) {
-      const keyName = this._keyNames[i]
-      const key = item[keyName]
-      if (!isString(key)) {
-        throw new Error(`Database.set: The dataItem is missing the key: ${keyName}`)
-      }
-      if (i === this._keyNames.length - 1) {
-        root[key] = item
-        delete item[keyName]
-        break
-      }
-      if (!root[key]) {
-        root[key] = {}
-      }
-      delete item[keyName]
-      root = <Tree>root[key] // 必定非null
-    }
-    this._writeTree()
-  }
-  
-  remove(item: DataItem, exactly?: boolean): boolean {
-    let root = this._tree
-    let deleteKey: string | null = null
-    let preDeleteRoot: Tree = root
-    for (let i = 0; i < this._keyNames.length; i++) {
-      const key = item[this._keyNames[i]]
-      const keyStr = String(key)
-      if (!key) {
-        if (exactly || !deleteKey) {
-          return false
+  get(pKeyValue: string): DataItem | null
+  get(pKeyValue: string[]): DataItem[]
+  get(pKeyValue: string | string[]): DataItem[] | DataItem | null {
+    const data = this._db.data
+    if (isArray(pKeyValue)) {
+      let result: DataItem[] = []
+      for (let i = 0; i < data.length; i++) {
+        const dataItem = data[i]
+        if ((<Array<DataProp>>pKeyValue).indexOf(dataItem[this._pKey]) > -1) {
+          result.push(dataItem)
         }
-        delete preDeleteRoot[deleteKey]
-        break
       }
-      if (!root[keyStr]) { break } // 要删除的项目不存在
-      const nextRoot = <Tree>root[keyStr]
-      if (Object.keys(root).length > 1) {
-        preDeleteRoot = root
-        deleteKey = keyStr
-      } else if (!deleteKey){
-        deleteKey = keyStr
-      }
-      root = nextRoot
-      if (i === this._keyNames.length - 1) {
-        // 最后一个key
-        delete preDeleteRoot[deleteKey || keyStr]
-        break
+      return deepClone(result)
+    }
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][this._pKey] === pKeyValue) {
+        return deepClone(data[i])
       }
     }
+    return null
+  }
 
-    // console.log(JSON.stringify(this._tree, null, 2))
-    this._writeTree()
-    return true
+  getByCategory(categoryInfo: CategoryInfo): DataItem[] | null {
+    let ctgRoot = this._db.category
+    for (let i = 0; i < this._categoryKeys.length; i++) {
+      const value = categoryInfo[this._categoryKeys[i]]
+      if (!isString(value)) {
+        if (value) {
+          // key非空且不是string
+          throw new Error(`Database.get: categoryKey: ${this._categoryKeys[i]}对应的值必须为string`)
+        }
+        return this.get(this._getPkeys(ctgRoot))
+      }
+      const nextRoot = ctgRoot[value]
+      if (isArray(nextRoot)) { return this.get(nextRoot) }
+      ctgRoot = nextRoot
+    }
+    return this.get(this._getPkeys(ctgRoot))
+  }
+
+  
+  set(categoryInfo: CategoryInfo, item: DataItem): void {
+    const clone = deepClone(this._db)
+    try {
+      const pKeyValue = item[this._pKey]
+      if (!isString(pKeyValue)) {
+        throw new Error(`Database.set: The dataItem is missing the STRING pKey: ${this._pKey}: ${item[this._pKey]}`)
+      }
+      this.remove(pKeyValue)
+      let ctgRoot = this._db.category
+      for (let i = 0; i < this._categoryKeys.length; i++) {
+        const categoryKey = this._categoryKeys[i]
+        const value = categoryInfo[categoryKey]
+        if (!isString(value)) {
+          throw new Error(`Database.set: The categoryInfo is missing the key: ${categoryKey}`)
+        }
+        const nextRoot = ctgRoot[value]
+        if (i === this._categoryKeys.length -1) {
+          if (nextRoot) {
+            if (!isArray(nextRoot)) {
+              ctgRoot[value] = []
+            }
+            const pKeys = <string[]>ctgRoot[value]
+            pKeys.indexOf(pKeyValue) === -1 && pKeys.push(pKeyValue)
+          } else {
+            // 需要创建新的主键数组
+            ctgRoot[value] = [pKeyValue]
+          }
+          this._addData(item)
+          break
+        }
+        if (!nextRoot || isArray(nextRoot)) {
+          ctgRoot[value] = {}
+        }
+        ctgRoot = <Tree>ctgRoot[value]
+      }
+      this._writeDb()
+    } catch (err) {
+      // 备份
+      this._db = clone
+      this._writeDb()
+      throw err
+    }
   }
   
-  has(item: DataItem, exactly?: boolean): boolean {
-    let root = this._tree
-    for (let i = 0; i < this._keyNames.length; i++) {
-      const key = item[this._keyNames[i]]
-      const keyStr = String(key)
-      if (!key) { return !exactly && !!i }
-      if (!root[keyStr]) { return false }
-      root = <Tree>root[keyStr]
+  remove(pKeyValue: string): boolean {
+    const searchIndex = this._searchData(pKeyValue)
+    const totalLevel = this._categoryKeys.length
+    if (searchIndex === -1) {
+      return false
     }
-    return true
+    let ctgRoot = this._db.category
+    this._db.data.splice(searchIndex, 1)
+    const removeNode = (
+      root: Tree,
+      pKeyValue: string,
+      preDeleteRoot: Tree,
+      deleteKey: string | null,
+      level: number = 1
+    ): boolean => {
+      let i = -1
+      const nodeKeys = Object.keys(root)
+      let removeStatus = false
+      while(++i < nodeKeys.length) {
+        const nextRoot = root[nodeKeys[i]]
+        if (isArray(nextRoot)) {
+          if (level < totalLevel) {
+            // 不是最后一层但却是数组 数据不合法 应删除
+            delete root[nodeKeys[i]]
+            continue
+          }
+          const index = nextRoot.indexOf(pKeyValue)
+          if (index === -1) {
+            return false
+          }
+          nextRoot.splice(index, 1)
+          if (!nextRoot.length) {
+            delete preDeleteRoot[deleteKey || nodeKeys[i]]
+          }
+          return true
+        }
+        // nextRoot是对象 判断有多少个键
+        let nextPreDelete = preDeleteRoot
+        let nextDeleteKey = deleteKey
+        const nextRootKeysLength = Object.keys(nextRoot).length
+        if (nextRootKeysLength > 1) {
+          nextPreDelete = nextRoot
+          nextDeleteKey = null
+        } else if (nextRootKeysLength === 1) {
+          nextDeleteKey || (nextDeleteKey = nodeKeys[i])
+        }
+        removeStatus = removeStatus || removeNode(<Tree>nextRoot, pKeyValue, nextPreDelete, nextDeleteKey, level + 1)
+        if (removeStatus) {
+          return true // 已经找到并删除
+        }
+      }
+      return false
+    }
+    const result = removeNode(ctgRoot, pKeyValue, ctgRoot, null, 1)
+    // this._writeDb()
+    return result
+  }
+  
+  has(pKeyValue: string): boolean {
+    return !!this.get(pKeyValue)
   }
 
-  _initTree() {
-    let tree = null
+  // 根据目录节点获取下面所有主键
+  private _getPkeys(cgtRoot: Tree): string[] {
+    let deduplicateMap: any = {}
+    let nodes: (Tree | string[])[] = [cgtRoot]
+    let node: Tree | string[] | undefined
+    while ((node = nodes.shift())) {
+      if (isArray(node)) {
+        node.forEach((pKey: string) => {
+          deduplicateMap[pKey] || (deduplicateMap[pKey] = true)
+        })
+        continue
+      }
+      const nodeKeys = Object.keys(node)
+      for (let i = 0; i < nodeKeys.length; i++) {
+        nodes.push(node[nodeKeys[i]])
+      }
+    }
+    return Object.keys(deduplicateMap)
+  }
+
+  // 搜索data数组中的数据项返回坐标
+  private _searchData(pKeyValue: string): number {
+    const data = this._db.data
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][this._pKey] === pKeyValue) {
+        return i
+      }
+    }
+    return -1
+  }
+
+  // 添加数据
+  private _addData(item: DataItem): void {
+    const pKeyValue = item[this._pKey]
+    const searchIndex = this._searchData(<string>pKeyValue)
+    // 更新data数组
+    if (searchIndex > -1) {
+      this._db.data[searchIndex] = item
+    } else {
+      this._db.data.push(item)
+    }
+  }
+
+  private _initDb(): Db {
+    let tree: Db | null = null
     try {
-      tree = JSON.parse(FS.readFileSync(this.path).toString())
+      tree = <Db>JSON.parse(FS.readFileSync(this.path).toString())
     } catch (err) {
-      tree = {}
-      this._writeTree(tree)
+      tree = {
+        category: {},
+        data: []
+      }
+      this._writeDb(tree)
     }
     return tree
   }
 
-  _writeTree(tree?: Tree) {
-    FS.writeFileSync(this.path, Buffer.from(JSON.stringify(this._tree || tree)))
+  private _writeDb(db?: Db): void {
+    FS.writeFileSync(this.path, Buffer.from(JSON.stringify(this._db || db)))
   }
 }
-

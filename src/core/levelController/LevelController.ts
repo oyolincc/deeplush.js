@@ -1,8 +1,8 @@
 import { defineFreeze } from '@/utils/util'
-import { DataItem, ReqMeta } from '@/global'
+import { ReqMeta } from '@/global'
 import Browser from '@/core/browser/Browser'
 import { EtrOpt } from '@/core/assist/Extractor'
-import Hooks, { HookInfo } from '@/core/assist/Hooks'
+import Hooks, { HookError } from '@/core/assist/Hooks'
 import HOOKS from './hooks'
 
 export enum LcStatus {
@@ -13,7 +13,7 @@ export enum LcStatus {
 
 export interface LcLevelMeta {
   reqMeta: ReqMeta,
-  digData: DataItem[] | null,
+  digData: ReqMeta[] | null,
   index: number
 }
 
@@ -21,17 +21,18 @@ const { STATIC, RUNNING, INTERRUPT } = LcStatus
 
 // 页面层级控制器 用于链式挖掘
 export default class LevelController {
+  static hooks: typeof HOOKS
   // 指向被link的下一个层级控制器
   private _next: LevelController | null
   // 指向被link的上一个层级控制器
   private _prev: LevelController | null
   private _level: number
   private _extractOptions: EtrOpt
-  private _hooks: Hooks<[LcLevelMeta[], LevelController, HookInfo]> | null
+  private _hooks: Hooks<[LcLevelMeta[], LevelController, HookError]> | null
   // 运行状态 静止static/运行中running/中断interrupt/跳过skip
   private _status: LcStatus
 
-  constructor(extractOptions: EtrOpt, hooks?: Hooks<[LcLevelMeta[], LevelController, HookInfo]> | null) {
+  constructor(extractOptions: EtrOpt, hooks?: Hooks<[LcLevelMeta[], LevelController, HookError]> | null) {
       this._next = null
       this._prev = null
       this._level = 1
@@ -83,7 +84,6 @@ export default class LevelController {
       reqMeta,
       digData: null,
       index: 0
-      // reqHeaders: {}
     }
     return this._dig(browser, reqMeta, [initialLevelMeta])
   }
@@ -125,7 +125,7 @@ export default class LevelController {
   // 每一层的信息包含：请求元 挖掘到的数据 请求元index
   private async _dig(browser: Browser, reqMeta: ReqMeta, levelMetaArr: LcLevelMeta[]) {
     const _next = this._next
-    let digData = null
+    let digData: ReqMeta[] | null = null
 
     // 如果是静止态，重设为运行态
     if (this._status === STATIC) {
@@ -148,8 +148,8 @@ export default class LevelController {
     } catch (err) {
       await this._notifyHooks(HOOKS.DIG_ERROR, levelMetaArr, err)
     }
-    // const curMeta = levelMetaArr[this._level - 1]
-    // curMeta.digData = digData
+    const curMeta = levelMetaArr[this._level - 1]
+    curMeta.digData = digData
     // curMeta.reqHeaders = browser.cloneOptions().headers
 
     // 已挖掘到该层级数据 HOOKS

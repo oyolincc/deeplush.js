@@ -1,5 +1,8 @@
 import * as PATH from 'path'
 import * as FS from 'fs'
+import { DlExecuteTask } from './Downloader'
+import { isNumber } from '@/utils/verify'
+import { pathRegex } from '@/utils/util'
 
 const CHUNK_SUFFIX = '.chunk'
 const SUFFIX_REGEXP = new RegExp(CHUNK_SUFFIX + '$')
@@ -55,4 +58,33 @@ export function mergeInDir(dirPath: string) {
       merge(targetDir)
     }
   })
+}
+
+export function transToNextChunk(task: DlExecuteTask): DlExecuteTask | null {
+  if (!task.isChunk) {
+    return task
+  }
+  if (!isNumber(task.chunkIndex)) {
+    throw new Error('transToNextChunk: lack chunkIndex!')
+  }
+  let start = parseInt(task.boundary.split('-')[0])
+  const totalSize = task.totalSize
+  const chunkSize = <number>task.chunkSize
+  if (totalSize <= start) {
+    return null
+  }
+  if (totalSize - chunkSize > start) {
+    start = start + chunkSize
+  } else {
+    task.chunkSize = totalSize - start
+    start = totalSize
+  }
+  const regexInfo = pathRegex(task.path)
+  if (!regexInfo) {
+    throw new Error('transToNextChunk: invalid path!')
+  }
+  task.chunkIndex++
+  task.boundary = `${start}-`
+  task.path = PATH.resolve(regexInfo[1], getChunkFileName(task.resourceName, task.chunkIndex))
+  return task
 }

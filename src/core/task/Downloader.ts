@@ -1,12 +1,12 @@
 import * as PATH from 'path'
 import * as FS from 'fs'
 import * as mime from 'mime'
-import { pathRegex, deepClone, defineFreeze } from '@/utils/util'
+import { pathRegex, defineFreeze } from '@/utils/util'
 import { isNumber } from '@/utils/verify'
-import { getChunkName, getChunkFileName, parseChunkFileName, merge } from './util'
+import { getChunkName, getChunkFileName, parseChunkFileName, merge, mergeInDir, transToNextChunk } from './util'
 import Tasker, { TaskerMain, Task, TaskerOpt } from './Tasker'
-import Request, { ReqVerifyOpt, ReqCallbackOpt } from '@/core/Request/Request'
-import Hooks, { HookInfo } from '@/core/assist/Hooks'
+import Request, { ReqVerifyOpt, ReqCallbackOpt, ReqUnVerifyOpt } from '@/core/Request/Request'
+import Hooks, { HookError } from '@/core/assist/Hooks'
 import HOOKS from './downloaderHooks'
 
 /**
@@ -28,7 +28,7 @@ export interface DownloaderTask extends Task<object> {
   url: string,
   path: string,
   boundary?: string,
-  reqOptions?: ReqVerifyOpt,
+  reqOptions?: ReqUnVerifyOpt,
   [other: string]: any
 }
 
@@ -37,13 +37,9 @@ export interface DlExecuteTask extends DownloaderTask {
   isChunk: boolean,
   reqOptions: ReqVerifyOpt,
   resourceName: string,
-  totalSize?: number,
+  totalSize: number,
   chunkIndex?: number,
   chunkSize?: number
-}
-
-export interface DlInfo {
-
 }
 
 const defaultDownloadOptions: DownloadOpt = {
@@ -53,12 +49,15 @@ const defaultDownloadOptions: DownloadOpt = {
 }
 
 export default class Downloader extends Tasker<DlExecuteTask> {
-  static merge: (chunkDirPath: string)=> void
+  static hooks: typeof HOOKS
+  static merge: (chunkDirPath: string) => void
+  static mergeInDir: (dirPath: string) => void
+  static transToNextChunk: (task: DlExecuteTask) => DlExecuteTask | null
   protected _request: Request
   protected _downloadOpt: DownloadOpt
-  private _hooks: Hooks<[DlInfo, HookInfo]> | null
+  private _hooks: Hooks<[DlExecuteTask, HookError]> | null
 
-  constructor(options: DownloaderOpt, hooks?: Hooks<[DlInfo, HookInfo]>) {
+  constructor(options: DownloaderOpt, hooks?: Hooks<[DlExecuteTask, HookError]>) {
     const taskerOpt: TaskerOpt<DlExecuteTask> = { ...options, exec }
     const downloadOpt = taskerOpt.options || {}
     delete taskerOpt.options
@@ -72,9 +71,9 @@ export default class Downloader extends Tasker<DlExecuteTask> {
       ...downloadOpt
     }
   }
-  
+
   download(task: DownloaderTask, reqOptions?: any) {
-    task = deepClone(task)
+    task = { ...task }
     let { base } = PATH.parse(PATH.resolve(task.path))
     const isChunk = task.isChunk = !!task.isChunk
     if (isChunk) {
@@ -92,11 +91,12 @@ export default class Downloader extends Tasker<DlExecuteTask> {
     reqOptions = reqOptions || task.reqOptions || {}
     reqOptions.url = task.url
     task.reqOptions = Request.parseOptions(reqOptions)
+    task.totalSize || (task.totalSize = 0) 
 
     this.todo(task as DlExecuteTask)
   }
 
-  protected _notifyHooks(ev: string, taskInfo: DlInfo, err: Error | null) {
+  protected _notifyHooks(ev: string, taskInfo: DlExecuteTask, err: Error | null) {
     const _hooks = this._hooks
     if (!_hooks) {
       return
@@ -124,8 +124,19 @@ export default class Downloader extends Tasker<DlExecuteTask> {
 
 }
 
-function exec(task: DlExecuteTask, end: Function) {
-
+function exec(this: Downloader, task: DlExecuteTask, end: Function) {
+  try {
+    execTask.call(this, task, () => {
+      if (task.isChunk) {
+        const regexPath = pathRegex(task.path)
+        regexPath && Downloader.merge(regexPath[1])
+      }
+      this._notifyHooks(HOOKS.END, task, null)
+      end()
+    })
+  } catch (err) {
+    this._notifyHooks(HOOKS.ERROR, task, err)
+  }
 }
 
 
@@ -225,13 +236,15 @@ function execTask(this: Downloader, task: DlExecuteTask, end: Function) {
   }
 
   const reqPromise = reqOptions.protocol === 'https:' ? this._request.https(reqOptions, cbOptions) : this._request.http(reqOptions, cbOptions)
-  reqPromise.catch(err => this._notifyHooks(HOOKS.ERROR, task, err))
+  reqPromise.catch(err => {
+    this._notifyHooks(HOOKS.ERROR, task, err)
+  })
 
 }
 
 
 defineFreeze(Downloader, 'hooks', HOOKS)
-
+defineFreeze(Downloader, 'transToNextChunk', transToNextChunk)
 defineFreeze(Downloader, 'merge', merge)
-// defineFreeze(Downloader, 'mergeInDir', mergeInDir)
+defineFreeze(Downloader, 'mergeInDir', mergeInDir)
 

@@ -1,5 +1,5 @@
 
-export type HookInfo = { err: Error | null, event: string }
+export type HookError = { err: Error | null, event: string }
 
 export type Callback<CbArgs extends any[]> = (...args: CbArgs) => any
 

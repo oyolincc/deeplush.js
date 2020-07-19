@@ -17,6 +17,13 @@ export function parseSize(size: number | string): string {
   return (index ? size.toFixed(2) : size) + unit[index]
 }
 
+export function parseTime(time: number | string): string {
+  const date = new Date(parseInt(String(time)))
+  const min = date.getMinutes()
+  const sec = date.getSeconds()
+  return `${min ? min + '分钟' : ''}${sec ? sec + '秒' : ''}`
+}
+ 
 export function defineFreeze(o: object, prop: string, value: any): void {
   Object.defineProperty(o, prop, {
     configurable: false,
@@ -39,26 +46,28 @@ export function iterateObject<Value>
 
 export function deepClone(target: any): any {
   function walkClone(target: any, map = new WeakMap()): any {
-    if (typeof target === 'object') {
-      if (map.has(target)) {
-        return map.get(target)
-      }
-      let cloneTarget: any = Object.prototype.toString.call(target) === '[object Array]' ? [] : {}
-      let i = -1
-      const keys = Object.keys(target)
-      map.set(target, cloneTarget)
-      while (++i < keys.length) {
-        const key = keys[i]
-        cloneTarget[key] = walkClone(target[key], map)
-      }
-      return cloneTarget
-    } else {
+    const type = Object.prototype.toString.call(target)
+    if (type !== '[object Object]' && type !== '[object Array]') {
       return target
     }
+    if (map.has(target)) {
+      return map.get(target)
+    }
+    let cloneTarget: any = type === '[object Array]' ? [] : {}
+    let i = -1
+    const keys = Object.keys(target)
+    map.set(target, cloneTarget)
+    while (++i < keys.length) {
+      const key = keys[i]
+      cloneTarget[key] = walkClone(target[key], map)
+    }
+    return cloneTarget
   }
   return walkClone(target)
 }
 
-// export function delay(time) {
-//   return new Promise(resolve => setTimeout(resolve, time))
-// }
+export function delay(time: number) {
+  return new Promise(resolve => setTimeout(resolve, time))
+}
+
+export const log = console.log

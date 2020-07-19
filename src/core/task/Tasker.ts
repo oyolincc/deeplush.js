@@ -1,7 +1,7 @@
 // // import Hooks from '@/core/Hooks/Hooks'
 
 /**
- * TQMax 待执行任务队列最大任务数
+ * TQMax 总任务队列最大任务数
  * PTQMax 执行中的任务队列最大数
  * interval 取新任务放入执行队列的间隔
  */
@@ -30,12 +30,15 @@ export default class Tasker<T extends any = any> {
   protected readonly _thisStart: Function
   // 总任务数 = 待执行 + 正在执行
   constructor(options: TaskerOpt) {
-    const numberProp = ['TQMAX', 'PTQMAX', 'interval']
+    const numberProp = ['TQMax', 'PTQMax', 'interval']
     numberProp.forEach(prop => {
       if (options[prop] <= 0) {
         throw new Error('Tasker.create: taskOptions属性小于0，不合法')
       }
     })
+    if (options.TQMax < options.PTQMax) {
+      throw new Error('Tasker.create: TQMax必须大于PTQMax')
+    }
 
     this._taskerOpt = {
       TQMax: parseInt(String(options.TQMax)),
@@ -52,10 +55,11 @@ export default class Tasker<T extends any = any> {
    * 添加新任务到TQ
    */
   todo(task: Task<T>) {
-    if (this._TQ.length < this._taskerOpt.TQMax) {
+    const { TQMax, PTQMax } = this._taskerOpt
+    if (this._TQ.length < TQMax - PTQMax) {
       this._TQ.push(task)
     } else {
-      throw new Error('Tasker<todo>: 超过最大任务限度')
+      throw new Error('Task.todo: 已超过下载器配置最大数')
     }
   }
 
@@ -68,7 +72,7 @@ export default class Tasker<T extends any = any> {
   }
 
   getEnable() {
-    return this._TQ.length < this._taskerOpt.TQMax
+    return this._TQ.length < this._taskerOpt.TQMax - this._taskerOpt.PTQMax
   }
 
   getWaitingCount() {
@@ -88,7 +92,7 @@ export default class Tasker<T extends any = any> {
    * 开始定时取任务
    */
   start() {
-    const { _thisStart, _taskerOpt: interval } = this
+    const { _thisStart, _taskerOpt: { interval } } = this
     if (!this._timer) {
       // this._do().then(() => {
       //   this._timer = setTimeout(_thisStart, interval)
@@ -100,7 +104,7 @@ export default class Tasker<T extends any = any> {
   }
 
   protected _start() {
-    const { _thisStart, _taskerOpt: interval } = this
+    const { _thisStart, _taskerOpt: { interval } } = this
     if (this._timer) {
       this._do()
       // @ts-ignore
@@ -117,7 +121,7 @@ export default class Tasker<T extends any = any> {
   
     const task = <Task<T>>this._TQ.shift()
     this._doing++ // 任务数加一
-    this._taskerOpt.exec(task, this._end.bind(this))
+    this._taskerOpt.exec.call(this, task, this._end.bind(this))
   }
 
   protected _end() {

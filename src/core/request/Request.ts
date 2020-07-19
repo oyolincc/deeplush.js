@@ -105,13 +105,20 @@ export default class Request {
   ): Promise<ReqResult> {
     const { onResHeaders, onResData, onResEnd } = cbOptions
     return new Promise<ReqResult>((resolve, reject) => {
+      let doCallback = (fn: Function, ...args: any[]) => {
+        try {
+          return fn(...args)
+        } catch (err) {
+          reject(err)
+        }
+      }
       const req = method(options, res => {
-        onResHeaders && onResHeaders(res.headers, () => req.abort())
+        onResHeaders && doCallback(onResHeaders, res.headers, () => req.abort())
         // 倘若存在自定义data处理回调，则不返回buffer数据
         if (onResData) {
-          res.on('data', chunk => onResData(chunk))
+          res.on('data', chunk => doCallback(onResData, chunk))
           res.on('end', () => {
-            onResEnd && onResEnd(res)
+            onResEnd && doCallback(onResEnd, res)
             resolve({
               response: res,
               buffer: Buffer.alloc(0)
@@ -121,7 +128,7 @@ export default class Request {
           const chunks: Buffer[] = []
           res.on('data', chunk => chunks.push(chunk))
           res.on('end', () => {
-            onResEnd && onResEnd(res)
+            onResEnd && doCallback(onResEnd, res)
             resolve({
               response: res,
               buffer: Buffer.concat(chunks)

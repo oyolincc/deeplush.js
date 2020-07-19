@@ -8,6 +8,10 @@ export function isNumber(n: any): n is number {
   return typeof n === 'number'
 }
 
+export function isArray(a: any): a is any[] {
+  return Object.prototype.toString.call(a) === '[object Array]'
+}
+
 export function isFunction(f: any): f is Function {
   return typeof f === 'function'
 }
