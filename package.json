@@ -1,0 +1,37 @@
+{
+  "name": "deeplush",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "bbbonnana <a824759414@gmail.com>",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "lint": "tslint -c tslint.json 'src/**/*.ts'",
+    "ts": "rimraf ./dist/ts && tsc",
+    "dev": "rimraf ./dist && rollup -w -c",
+    "build:dev": "rimraf ./dist && rollup -c"
+  },
+  "devDependencies": {
+    "@types/cheerio": "^0.22.18",
+    "@types/cookiejar": "^2.1.1",
+    "@types/mime": "^2.0.2",
+    "@types/node": "^14.0.14",
+    "@typescript-eslint/eslint-plugin": "^4.23.0",
+    "@typescript-eslint/parser": "^4.23.0",
+    "eslint": "^7.26.0",
+    "eslint-config-standard": "^16.0.2",
+    "eslint-plugin-import": "^2.22.1",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^4.2.1",
+    "rimraf": "^3.0.2",
+    "rollup": "^2.47.0",
+    "rollup-plugin-typescript2": "^0.30.0",
+    "tslib": "^2.2.0",
+    "typescript": "^4.2.4"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.9",
+    "cookiejar": "^2.1.2",
+    "mime": "^2.4.4"
+  }
+}

@@ -1,0 +1,25 @@
+module.exports = {
+  env: {
+    es2021: true,
+    node: true
+  },
+  extends: [
+    'standard'
+  ],
+  parser: '@typescript-eslint/parser',
+  parserOptions: {
+    ecmaVersion: 12,
+    sourceType: 'module'
+  },
+  plugins: [
+    '@typescript-eslint'
+  ],
+  rules: {
+    'space-before-function-paren': ['error', 'never'],
+    'no-unused-expressions': ['warn'],
+    'no-unused-vars': ['warn'],
+    'keyword-spacing': ['warn'],
+    quotes: ['error', 'single'],
+    semi: ['error', 'never']
+  }
+}
