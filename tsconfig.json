@@ -4,7 +4,6 @@
     "module": "ES2015",
     "moduleResolution": "Node",
     "strict": true,
-    "declaration": true,
     "removeComments": true,
     /* "esModuleInterop": true, */
     /* Advanced Options */

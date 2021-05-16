@@ -15,9 +15,11 @@ module.exports = {
     '@typescript-eslint'
   ],
   rules: {
+    'no-redeclare': ['off'],
     'space-before-function-paren': ['error', 'never'],
     'no-unused-expressions': ['warn'],
     'no-unused-vars': ['warn'],
+    'handle-callback-err': ['warn'],
     'keyword-spacing': ['warn'],
     quotes: ['error', 'single'],
     semi: ['error', 'never']
