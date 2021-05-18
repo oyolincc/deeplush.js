@@ -16,6 +16,8 @@ module.exports = {
   ],
   rules: {
     'no-redeclare': ['off'],
+    'no-dupe-class-members': ['off'],
+    'no-new-func': ['off'],
     'space-before-function-paren': ['error', 'never'],
     'no-unused-expressions': ['warn'],
     'no-unused-vars': ['warn'],

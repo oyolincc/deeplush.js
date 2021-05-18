@@ -7,20 +7,21 @@ import {
 } from 'http'
 import { request as httpsRequest } from 'https'
 
-interface CallbackOptions {
-  onResHeaders?: (res: IncomingMessage, abort: () => void) => any
-  onResData?: (res: IncomingMessage, chunk: Buffer, abort: () => void) => any
-  onResEnd?: (res: IncomingMessage) => any
-  onReqClose?: (req: ClientRequest) => any,
-  onError?: (err: Error) => any
-}
-
-interface RequestOptions extends RO {
+export interface RequestOptions extends RO {
   url?: string | URL
   base?: string | URL
 }
 
+export interface CallbackOptions {
+  onResHeaders?: (options: RO, res: IncomingMessage, abort: () => void) => any
+  onResData?: (options: RO, res: IncomingMessage, chunk: Buffer, abort: () => void) => any
+  onResEnd?: (options: RO, res: IncomingMessage) => any
+  onReqClose?: (options: RO, req: ClientRequest) => any,
+  onError?: (options: RO, err: Error) => any
+}
+
 interface RequestContent {
+  options: RO
   response: IncomingMessage
   buffer: Buffer
 }
@@ -32,7 +33,7 @@ interface Normalizable<Result> {
 }
 
 // 根据变参转换为合法的请求参数
-const createNormalizedOptions: Normalizable<RO> = function(a: any, b?: any, c?: any) {
+export const createNormalizedOptions: Normalizable<RO> = function(a: any, b?: any, c?: any) {
   const l = arguments.length
   if (l === 1) {
     if (isObject(a)) {
@@ -61,16 +62,17 @@ const createNormalizedOptions: Normalizable<RO> = function(a: any, b?: any, c?: 
 export const fetchContent: Normalizable<Promise<RequestContent>> = function(...args: any[]) {
   const chunks: Buffer[] = []
   const callbackOpts: CallbackOptions = {
-    onResData: (res, chunk) => chunks.push(chunk)
+    onResData: (options, res, chunk) => chunks.push(chunk)
   }
   const prom = new Promise<RequestContent>((resolve, reject) => {
-    callbackOpts.onResEnd = res => {
+    callbackOpts.onResEnd = (options, res) => {
       resolve({
+        options,
         response: res,
         buffer: Buffer.concat(chunks)
       })
     }
-    callbackOpts.onError = err => reject(err)
+    callbackOpts.onError = (options, err) => reject(err)
     const params = args.concat(callbackOpts)
     createRequest.apply(null, params as Parameters<typeof createRequest>)
   })
@@ -132,18 +134,19 @@ function request(
   const { onResHeaders, onResData, onResEnd, onReqClose, onError } = callbackOpts
   const deal = (err: Error) => {
     if (onError) {
-      onError(err)
+      onError(options, err)
     } else {
       throw err
     }
   }
   const todo = (fn?: Function, ...args: any[]) => {
     try {
-      fn && fn(...args)
+      fn && fn(options, ...args)
     } catch (err) {
       deal(err)
     }
   }
+  console.log(options)
   const req = method(options, res => {
     const abort = () => req.destroy()
     todo(onResHeaders, res, abort)
