@@ -1,17 +1,5 @@
 export function noob() {}
 
-export function merge(dest: any, src: any, byDest = false) {
-  const props = Object.getOwnPropertyNames(src)
-  for (let i = 0; i < props.length; i++) {
-    const prop = props[i]
-    if (!byDest || Object.prototype.hasOwnProperty.call(dest, prop)) {
-      dest[prop] = src[prop]
-    }
-  }
-
-  return dest
-}
-
 export function pathRegex(path: string): RegExpExecArray | null {
   return /(.+)[\\/]([^\\/]+)$/.exec(path)
 }

@@ -1,9 +1,10 @@
 import { poll } from '../../utils/util'
-import Emitter, { NormalError } from '../Emitter'
+import Emitter from '../Emitter'
 
 /* eslint-disable no-use-before-define */
 export const taskerHooks = {
-  END: 'TaskerEnd'
+  END: 'TaskerEnd',
+  FINISH: 'TaskerFinish'
 }
 
 export interface TaskerOptions {
@@ -20,7 +21,7 @@ export type Executor<Task> = (
 ) => any
 /* eslint-enable no-use-before-define */
 
-export default class Tasker<Task = any> extends Emitter<[Task | NormalError]> {
+export default class Tasker<Task = any> extends Emitter {
   protected _options: TaskerOptions
   protected _waiting: Task[] // 待执行队列
   protected _doingCount: number // 正在执行的数目
@@ -47,6 +48,30 @@ export default class Tasker<Task = any> extends Emitter<[Task | NormalError]> {
     this._waiting = []
     this._doingCount = 0
     this._pollingFunc = null
+  }
+
+  protected _getOptions() {
+    return this._options
+  }
+
+  // 取任务
+  protected _do() {
+    if (!this._waiting.length || this._doingCount >= this._options.doingMax) {
+      return
+    }
+
+    const task = this._waiting.shift() as Task
+    this._doingCount++ // 任务数加一
+    this._exec && this._exec(task, () => { this._end(task) })
+  }
+
+  protected _end(task: Task) {
+    this._doingCount--
+    this.emit(taskerHooks.END, task)
+    if (!this._waiting.length && !this._doingCount) {
+      // 已完成所有任务
+      this.emit(taskerHooks.FINISH)
+    }
   }
 
   // 添加新的待处理任务
@@ -96,21 +121,5 @@ export default class Tasker<Task = any> extends Emitter<[Task | NormalError]> {
     }
     this._pollingFunc = pollingFunc
     poll(pollingFunc, this._options.interval, true)
-  }
-
-  // 取任务
-  protected _do() {
-    if (!this._waiting.length || this._doingCount >= this._options.doingMax) {
-      return
-    }
-
-    const task = this._waiting.shift() as Task
-    this._doingCount++ // 任务数加一
-    this._exec && this._exec(task, () => { this._end(task) })
-  }
-
-  protected _end(task: Task) {
-    this._doingCount--
-    this.emit(taskerHooks.END, task)
   }
 }

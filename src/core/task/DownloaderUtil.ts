@@ -55,11 +55,8 @@ export function parseChunkFileName(chunkFileName: string): chunkInfo {
   }
 }
 
-/**
- * @param {string} chunkDirPath 不支持相对路径
- */
-export function merge(chunkDirPath: string): void {
-  if (/^[\\/]/.test(chunkDirPath)) {
+export function merge(chunkDirPath: string, removeDir: boolean = false): void {
+  if (!SUFFIX_REGEXP.test(chunkDirPath)) {
     throw new Error('chunkDirPath is wrong!')
   }
   let chunkIndex = 0
@@ -69,8 +66,13 @@ export function merge(chunkDirPath: string): void {
   while (fsLib.existsSync((readPath = pathLib.resolve(chunkDirPath, getChunkFileName(name, chunkIndex++))))) {
     chunks.push(fsLib.readFileSync(readPath))
   }
-  fsLib.writeFileSync(pathLib.resolve(dir, name), Buffer.concat(chunks))
-  fsLib.rmdirSync(chunkDirPath, { recursive: true })
+  if (chunks.length) {
+    fsLib.writeFileSync(pathLib.resolve(dir, name), Buffer.concat(chunks))
+    /* 删除目录 危险操作 谨慎调试 */
+    removeDir && fsLib.rmdirSync(chunkDirPath, { recursive: true })
+  } else {
+    throw new Error('no chunk file!')
+  }
 }
 
 // 将目录下所有chunk目录合并处理

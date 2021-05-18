@@ -16,16 +16,21 @@ import {
   merge as downloaderMerge,
   mergeInDir
 } from './DownloaderUtil'
-import { merge, pathRegex } from '../../utils/util'
+import { pathRegex } from '../../utils/util'
 import { isFunction, isNumber } from '../../utils/verify'
-import { NormalError } from '../Emitter'
 
 export const downloaderHooks = {
   ABORT: 'DownloaderAbort',
   START: 'DownloaderStart',
   WRITE: 'DownloaderWrite',
   END: 'DownloaderEnd',
-  ERROR: 'DownloaderError'
+  ERROR: 'DownloaderError',
+  FINISH: 'DownloaderFinish'
+}
+
+export interface DownloaderError {
+  err: Error,
+  [other: string]: any
 }
 
 export interface DownloaderOptions extends TaskerOptions {
@@ -177,7 +182,7 @@ function exec(this: Tasker<DownloadTask>, task: DownloadTask, end: Function) {
     // 收尾工作，针对分块文件合并分块
     if (task.isChunk) {
       const regexPath = pathRegex(task.path)
-      regexPath && Downloader.merge(regexPath[1])
+      regexPath && Downloader.merge(regexPath[1], true)
     }
     end()
   }
@@ -193,7 +198,7 @@ function exec(this: Tasker<DownloadTask>, task: DownloadTask, end: Function) {
 }
 
 export default class Downloader extends Tasker<DownloadTask> {
-  static merge: (chunkDirPath: string) => void
+  static merge: (chunkDirPath: string, removeDir?: boolean) => void
   static mergeInDir: (dirPath: string) => void
   // static transToNextChunk: (task: DownloadTask) => DownloadTask | null
   protected _options: DownloaderOptions
@@ -207,9 +212,11 @@ export default class Downloader extends Tasker<DownloadTask> {
     if (maxChunkThreshold && (!isNumber(maxChunkThreshold) || maxChunkThreshold <= 0)) {
       throw new Error('invalid maxChunkThreshold!')
     }
-    // @ts-ignore
-    this._options = merge(this._options, defaultOptions, true)
-    this.on(taskerHooks.END, task => this.notify(downloaderHooks.END, task))
+    this._options = super._getOptions()
+    this._options.filter = filter || defaultOptions.filter
+    this._options.maxChunkThreshold = maxChunkThreshold || defaultOptions.maxChunkThreshold
+    this.on(taskerHooks.END, (task: DownloadTask) => this.notify(downloaderHooks.END, task))
+    this.on(taskerHooks.FINISH, () => this.emit(downloaderHooks.FINISH))
   }
 
   protected _writeFile(path: string, buffer: Buffer, task: DownloadTask) {
@@ -230,7 +237,7 @@ export default class Downloader extends Tasker<DownloadTask> {
     super.start(exec)
   }
 
-  public notify(eventName: string, arg: DownloadTask | NormalError) {
+  public notify(eventName: string, arg: DownloadTask | DownloaderError) {
     if (this.has(eventName)) {
       this.emit(
         eventName,

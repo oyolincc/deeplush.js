@@ -147,7 +147,7 @@ function request(
     }
   }
   const req = method(options, res => {
-    const abort = () => req.destroy()
+    const abort = () => req.abort()
     todo(onResHeaders, res, abort)
     // 倘若存在自定义data处理回调，则不返回buffer数据
     if (onResData) {
