@@ -16,6 +16,28 @@ export function pathRegex(path: string): RegExpExecArray | null {
   return /(.+)[\\/]([^\\/]+)$/.exec(path)
 }
 
+export function simpleDeepClone(target: any): any {
+  function walkClone(target: any, map = new WeakMap()): any {
+    const type = Object.prototype.toString.call(target)
+    if (type !== '[object Object]' && type !== '[object Array]') {
+      return target
+    }
+    if (map.has(target)) {
+      return map.get(target)
+    }
+    let i = -1
+    const cloneTarget: any = type === '[object Array]' ? [] : {}
+    const keys = Object.keys(target)
+    map.set(target, cloneTarget)
+    while (++i < keys.length) {
+      const key = keys[i]
+      cloneTarget[key] = walkClone(target[key], map)
+    }
+    return cloneTarget
+  }
+  return walkClone(target)
+}
+
 // 延时
 export function delay(time: number) {
   return new Promise(resolve => setTimeout(resolve, time))

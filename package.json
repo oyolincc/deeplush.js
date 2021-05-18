@@ -9,6 +9,7 @@
     "lint": "tslint -c tslint.json 'src/**/*.ts'",
     "ts": "rimraf ./dist/ts && tsc",
     "dev": "rimraf ./dist && rollup -w -c",
+    "build": "rimraf ./dist && rollup -c --environment PROD",
     "build:dev": "rimraf ./dist && rollup -c"
   },
   "devDependencies": {
@@ -25,6 +26,7 @@
     "eslint-plugin-promise": "^4.2.1",
     "rimraf": "^3.0.2",
     "rollup": "^2.47.0",
+    "rollup-plugin-terser": "^7.0.2",
     "rollup-plugin-typescript2": "^0.30.0",
     "tslib": "^2.2.0",
     "typescript": "^4.2.4"

@@ -18,8 +18,9 @@ import {
 } from './DownloaderUtil'
 import { merge, pathRegex } from '../../utils/util'
 import { isFunction, isNumber } from '../../utils/verify'
+import { NormalError } from '../Emitter'
 
-const hooks = {
+export const downloaderHooks = {
   ABORT: 'DownloaderAbort',
   START: 'DownloaderStart',
   WRITE: 'DownloaderWrite',
@@ -85,7 +86,7 @@ function getCallbackOptions(
       if (filter) {
         if (!filter(contentSize, contentType, ext)) {
           abort()
-          this.emit(hooks.ABORT, { ...task })
+          this.notify(downloaderHooks.ABORT, task)
           return
         }
       }
@@ -107,7 +108,7 @@ function getCallbackOptions(
           task.path = pathLib.resolve(pathInfo.dir, getChunkFileName(resourceName, 0))
         }
       }
-      this.emit(hooks.START, { ...task })
+      this.notify(downloaderHooks.START, task)
       fsLib.mkdirSync(pathInfo.dir, { recursive: true })
     },
     // 写入文件时 文件夹路径取dir 文件名取base
@@ -148,14 +149,15 @@ function getCallbackOptions(
         boundStart += length
         task.boundary = `${boundStart}-`
         isChunk && task.chunkIndex!++ // 不可能为undefined
-        execEnd()
-        return
+      }
+      // 少数情况没有content-length请求头
+      if (boundStart !== task.totalSize) {
+        task.totalSize = boundStart
       }
       execEnd()
     },
     onError: (options, err) => {
-      console.log('下载器报错', err)
-      this.emit(hooks.ERROR, {
+      this.notify(downloaderHooks.ERROR, {
         err,
         task: { ...task }
       })
@@ -207,21 +209,34 @@ export default class Downloader extends Tasker<DownloadTask> {
     }
     // @ts-ignore
     this._options = merge(this._options, defaultOptions, true)
-    this.on(taskerHooks.END, task => this.emit(hooks.END, { ...task }))
+    this.on(taskerHooks.END, task => this.notify(downloaderHooks.END, task))
   }
 
   protected _writeFile(path: string, buffer: Buffer, task: DownloadTask) {
     fsLib.writeFileSync(path, buffer)
-    this.emit(hooks.WRITE, { ...task })
+    this.notify(downloaderHooks.WRITE, task)
   }
 
   public download(task: Downloadable, requestOptions?: RequestOptions) {
     const theTask = createNormalizeTask(task, requestOptions)
-    this.todo(theTask)
+    super.todo(theTask)
+  }
+
+  public todo() {
+    throw new Error('you can not use this method! please use download instead!')
   }
 
   public start() {
     super.start(exec)
+  }
+
+  public notify(eventName: string, arg: DownloadTask | NormalError) {
+    if (this.has(eventName)) {
+      this.emit(
+        eventName,
+        eventName === downloaderHooks.ERROR ? arg : { ...arg }
+      )
+    }
   }
 }
 

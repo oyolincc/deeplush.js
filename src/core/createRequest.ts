@@ -20,13 +20,13 @@ export interface CallbackOptions {
   onError?: (options: RO, err: Error) => any
 }
 
-interface RequestContent {
+export interface RequestContent {
   options: RO
   response: IncomingMessage
   buffer: Buffer
 }
 
-interface Normalizable<Result> {
+export interface Normalizable<Result> {
   (options: RequestOptions): Result
   (url: string | URL, options?: RequestOptions | null): Result
   (url: string, base: string | URL, options?: RequestOptions | null): Result
@@ -146,7 +146,6 @@ function request(
       deal(err)
     }
   }
-  console.log(options)
   const req = method(options, res => {
     const abort = () => req.destroy()
     todo(onResHeaders, res, abort)

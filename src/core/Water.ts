@@ -1,30 +1,30 @@
 import { isFunction, isArray } from '../utils/verify'
 
 /* eslint-disable no-use-before-define */
-type SyncWaterFlow = (this: Water, source: any, info: SourceInfo) => any
-type AsyncWaterFlow = (
-  this: Water,
-  source: any,
-  info: SourceInfo,
-  callback: (subStates: any) => any
-) => any
-type WaterFlow = SyncWaterFlow | AsyncWaterFlow
-type SourceInfo = { index: number, total: number }
+export type SyncWaterFlow = (this: Water, source: any, info: SourceInfo) => any
+export type AsyncWaterFlow = (this: Water, source: any, info: SourceInfo) => Promise<any>
+export type SourceInfo = { index: number, total: number }
 /* eslint-enable no-use-before-define */
 
 export default class Water {
   private _states: any[]
 
-  constructor(state?: any) {
+  constructor(state: any) {
+    if (state === undefined) {
+      throw new Error('state can\'t be undefined, please use null!')
+    }
     this._states = []
     this._states.push(state)
   }
 
   static source(states: any): Water {
-    return new Water().resolve(states)
+    return new Water(null).resolve(states)
   }
 
   public resolve(states: any): Water {
+    if (states === undefined) {
+      throw new Error('states can\'t be undefined, please use null!')
+    }
     if (isArray(states)) {
       this._states = states
     } else if (states && Object.prototype.hasOwnProperty.call(states, 'length')) {
@@ -35,68 +35,82 @@ export default class Water {
     return this
   }
 
-  public flow(wf: SyncWaterFlow): Water
-  public flow(wf: AsyncWaterFlow): Promise<Water>
-  public flow(wf: WaterFlow): Water | Promise<Water> {
+  // water同步流动
+  public flow(wf: SyncWaterFlow, strong: boolean = false): Water {
     if (!isFunction(wf)) {
       throw new TypeError('water flow should be a function!')
     }
-    const waters: Water[] = []
+    const waters: any[] = []
     const states = this._states
-    let result = null
-    if (wf.length > 2) {
-      // 异步模式
-      result = (async() => {
-        for (let i = 0; i < states.length; i++) {
-          let water: Water
-          if (states[i] instanceof Water) {
-            water = await states[i].flow(wf)
-          } else {
-            const subStates = await new Promise<any>(resolve => {
-              (wf as AsyncWaterFlow).call(
-                this,
-                states[i],
-                { index: i, total: states.length },
-                resolve
-              )
-            })
-            water = Water.source(subStates)
+    for (let i = 0; i < states.length; i++) {
+      let water: Water
+      if (states[i] instanceof Water) {
+        water = states[i].flow(wf)
+      } else {
+        let subStates
+        const info = { index: i, total: states.length }
+        try {
+          subStates = wf.call(this, states[i], info)
+        } catch (err) {
+          if (strong) {
+            waters.push(err)
+            continue
           }
-          waters.push(water)
+          throw err
         }
-        return Water.source(waters)
-      })()
-    } else {
-      // 同步模式
-      for (let i = 0; i < states.length; i++) {
-        let water: Water
-        if (states[i] instanceof Water) {
-          water = states[i].flow(wf)
-        } else {
-          water = Water.source((wf as SyncWaterFlow).call(
-            this,
-            states[i],
-            { index: i, total: states.length }
-          ))
+        if (subStates === undefined) {
+          continue // 跳过undefined
         }
-        waters.push(water)
+        water = Water.source(subStates)
       }
-      result = Water.source(waters)
+      waters.push(water)
     }
-    return result
+    return Water.source(waters)
   }
 
-  public gather(): any[] {
-    const states: any[] = []
-    const queue: Water[] = [this]
-    while (queue.length) {
-      const water = queue.shift()!
-      for (let i = 0; i < water._states.length; i++) {
-        const state = water._states[i]
-        const target = state instanceof Water ? queue : states
-        target.push(state)
+  // water异步流动
+  public async asyncFlow(wf: AsyncWaterFlow, strong: boolean = true): Promise<Water> {
+    if (!isFunction(wf)) {
+      throw new TypeError('water flow should be a function!')
+    }
+    const waters: any[] = []
+    const states = this._states
+    for (let i = 0; i < states.length; i++) {
+      let water: Water
+      if (states[i] instanceof Water) {
+        water = await states[i].asyncFlow(wf)
+      } else {
+        const info = { index: i, total: states.length }
+        let subStates
+        try {
+          subStates = await wf.call(this, states[i], info)
+        } catch (err) {
+          if (strong) {
+            waters.push(err)
+            continue
+          }
+          throw err
+        }
+        if (subStates === undefined) {
+          continue // 跳过undefined
+        }
+        water = Water.source(subStates)
+      }
+      waters.push(water)
+    }
+    return Water.source(waters)
+  }
+
+  public gather(result: any[] = []): any[] {
+    let i = -1
+    while (++i < this._states.length) {
+      const state = this._states[i]
+      if (state instanceof Water) {
+        state.gather(result)
+      } else {
+        result.push(state)
       }
     }
-    return states
+    return result
   }
 }

@@ -1,16 +1,21 @@
 import typescript from 'rollup-plugin-typescript2'
 import path from 'path'
+import { terser } from 'rollup-plugin-terser'
 // import json from '@rollup/plugin-json'
-// import { terser } from 'rollup-plugin-terser'
-
-const plugins = [
-  typescript({
-    tsconfig: 'tsconfig.json'
-  })
-]
 
 const outputDir = './dist'
 const input = './src/index.ts'
+const isProd = !!process.env.PROD
+const tsConfig = {
+  tsconfig: 'tsconfig.json'
+}
+const plugins = [
+  typescript(tsConfig)
+]
+
+if (isProd) {
+  plugins.push(terser())
+}
 
 export default [{
   input,
@@ -19,6 +24,6 @@ export default [{
     format: 'cjs',
     exports: 'auto'
   },
-  plugins
-  // external: ['https', 'url', 'fs', 'util', 'path']
+  plugins,
+  external: ['http', 'https', 'url', 'fs', 'util', 'path']
 }]

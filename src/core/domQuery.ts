@@ -4,10 +4,10 @@ type Root = cheerio.Root
 type Cheerio = cheerio.Cheerio
 type Element = cheerio.Element
 
-interface QueryIns {
+export interface QueryIns {
   (selector: any): Cheerio
   _: Root
-  map: <T>(qs: Cheerio, callback: (index: number, element: Element) => any) => T[]
+  map: <T>(qs: Cheerio, callback: (element: Element, index: number) => any) => T[]
 }
 
 export default function Query(document: string | Buffer) {
@@ -21,9 +21,9 @@ export default function Query(document: string | Buffer) {
 
 Query.prototype.map = function<T>(
   qs: Cheerio,
-  callback: (index: number, element: Element) => any
+  callback: (element: Element, index: number) => any
 ) {
   const result: T[] = []
-  qs.each((idx, el) => result.push(callback(idx, el)))
+  qs.each((idx, el) => result.push(callback(el, idx)))
   return result
 }

@@ -30,4 +30,8 @@ export default class Emitter<CbArgs extends any[] = any[]> {
       evs[event][i].handler.apply(null, args)
     }
   }
+
+  public has(event: string) {
+    return !!(this._evs[event] && this._evs[event].length)
+  }
 }
