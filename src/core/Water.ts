@@ -32,6 +32,9 @@ export default class Water {
     } else {
       this._states = [states]
     }
+    if (!this._states.length) {
+      this._states = [null]
+    }
     return this
   }
 
