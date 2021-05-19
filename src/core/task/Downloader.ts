@@ -1,4 +1,3 @@
-import { RequestOptions as RO } from 'http'
 import * as pathLib from 'path'
 import * as fsLib from 'fs'
 import * as mime from 'mime'
@@ -6,8 +5,8 @@ import Tasker, { TaskerOptions, taskerHooks } from './Tasker'
 import {
   RequestOptions,
   CallbackOptions,
-  createHttpRequest,
-  createHttpsRequest
+  NormalizedOptions,
+  request
 } from '../createRequest'
 import {
   getChunkName,
@@ -57,7 +56,7 @@ export interface DownloadTask extends Downloadable {
   resourceName: string
   boundary: string
   totalSize: number
-  requestOptions: RO
+  requestOptions: NormalizedOptions
   chunkIndex?: number
   chunkSize?: number
 }
@@ -188,13 +187,7 @@ function exec(this: Tasker<DownloadTask>, task: DownloadTask, end: Function) {
   }
 
   const cbOptions = getCallbackOptions.call(this as Downloader, task, execEnd)
-  if (requestOptions.protocol === 'http:') {
-    createHttpRequest(requestOptions, cbOptions)
-  } else if (requestOptions.protocol === 'https:') {
-    createHttpsRequest(requestOptions, cbOptions)
-  } else {
-    throw new Error('only support http or https')
-  }
+  request(requestOptions, cbOptions)
 }
 
 export default class Downloader extends Tasker<DownloadTask> {

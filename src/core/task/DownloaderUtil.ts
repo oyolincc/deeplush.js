@@ -1,7 +1,7 @@
 import * as pathLib from 'path'
 import * as fsLib from 'fs'
 import { Downloadable, DownloadTask } from './Downloader'
-import { RequestOptions, createNormalizedOptions } from '../createRequest'
+import { RequestOptions, normalizeOptions } from '../createRequest'
 // import { isNumber } from '@/utils/verify'
 // import { pathRegex } from '@/utils/util'
 
@@ -17,7 +17,7 @@ export type chunkInfo = {
 export function createNormalizeTask(task: Downloadable, requestOptions?: RequestOptions) {
   const theTask = {
     url: task.url,
-    path: task.path
+    path: task.path // 写入文件的路径
   } as DownloadTask
   const { base } = pathLib.parse(pathLib.resolve(task.path))
   const isChunk = theTask.isChunk = !!task.isChunk
@@ -32,7 +32,10 @@ export function createNormalizeTask(task: Downloadable, requestOptions?: Request
   theTask.boundary = task.boundary || '0-'
   theTask.totalSize = task.totalSize || 0
   const reqOptions = requestOptions || task.requestOptions || {}
-  theTask.requestOptions = createNormalizedOptions(theTask.url, reqOptions)
+  theTask.requestOptions = normalizeOptions({
+    ...reqOptions,
+    url: theTask.url
+  })
   return theTask
 }
 

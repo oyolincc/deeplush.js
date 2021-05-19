@@ -1,8 +1,6 @@
 import {
   createRequest,
-  createNormalizedOptions,
-  createHttpRequest,
-  createHttpsRequest
+  normalizeOptions
 } from './core/createRequest'
 import Database from './core/Database'
 import Query from './core/domQuery'
@@ -15,9 +13,7 @@ import Downloader from './core/task/Downloader'
 export default {
   requestUtil: {
     createRequest,
-    createNormalizedOptions,
-    createHttpsRequest,
-    createHttpRequest
+    normalizeOptions
   },
   Database,
   Query,
