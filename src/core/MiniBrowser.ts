@@ -63,7 +63,9 @@ class BrowserTab {
     }
     const { host, path } = options
     if (host) {
-      const cookiesStr = this._.getCookies(host, path || '').toValueString()
+      // const cookiesStr = this._.getCookies(host, path || '').toValueString()
+      // 屏蔽path
+      const cookiesStr = this._.getCookies(host, '').toValueString()
       options.headers.Cookie = cookiesStr
     }
     // Referer处理
