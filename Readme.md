@@ -52,7 +52,7 @@ MiniBrowser和BrowserTab实例均有newTab方法，区别在于前者需传初�
 
 ## Query
 
-基于css选择器解析一个document，内部使用cheerio库，详情看test事例。
+基于css选择器解析一个document，内部使用cheerio库，详情见test事例。
 
 ## Water
 
@@ -99,10 +99,4 @@ flow 2 层 {"b":4}
 ## Downloader
 
 下载器，支持开启、关闭、每x秒检查是否有新任务、最大并行处理任务数、最大总任务数。
-
-
-
-其他的见代码，反正不会有人用。懒得写了
-
-
 
